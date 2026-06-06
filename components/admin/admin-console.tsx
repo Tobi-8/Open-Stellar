@@ -1,0 +1,387 @@
+"use client"
+
+import { useState, type ReactNode } from "react"
+import { Activity, Check, Copy, Cpu, KeyRound, Layers3, RadioTower, Shield, Wallet } from "lucide-react"
+import type { District, MoltbotAgent } from "@/lib/types"
+
+type Plan = {
+  name: string
+  price: string
+  requests: string
+  teams: string
+  features: string[]
+  accent: string
+}
+
+type AdminConsoleProps = {
+  agents: MoltbotAgent[]
+  districts: District[]
+}
+
+const plans: Plan[] = [
+  {
+    name: "Starter",
+    price: "$49/mo",
+    requests: "10k requests / month",
+    teams: "1 squad",
+    features: ["Single API key", "Shared x402 settlement rail", "Base request throttling"],
+    accent: "text-cyan-300",
+  },
+  {
+    name: "Growth",
+    price: "$249/mo",
+    requests: "100k requests / month",
+    teams: "5 squads",
+    features: ["Multi-team orchestration", "Priority relay lanes", "Usage and policy controls"],
+    accent: "text-amber-300",
+  },
+  {
+    name: "Command",
+    price: "Custom",
+    requests: "500k+ requests / month",
+    teams: "Unlimited squads",
+    features: ["Dedicated infra pool", "Audit log retention", "Custom billing rules"],
+    accent: "text-emerald-300",
+  },
+]
+
+const demoKey = "sk_live_8f3b1c9a4d7e2b6f"
+const monthlyLimit = 50000
+const monthlyUsed = 18420
+
+export function AdminConsole({ agents, districts }: AdminConsoleProps) {
+  const [copied, setCopied] = useState(false)
+  const [selectedPlan, setSelectedPlan] = useState<Plan>(plans[1])
+
+  const activeAgents = agents.filter((agent) => agent.status === "active" || agent.status === "working")
+  const totalTasks = agents.reduce((sum, agent) => sum + agent.tasksCompleted, 0)
+  const avgCpu = Math.round(agents.reduce((sum, agent) => sum + agent.cpu, 0) / Math.max(1, agents.length))
+  const avgMemory = Math.round(agents.reduce((sum, agent) => sum + agent.memory, 0) / Math.max(1, agents.length))
+  const usagePercent = Math.round((monthlyUsed / monthlyLimit) * 100)
+  const remaining = Math.max(0, monthlyLimit - monthlyUsed)
+  const topAgents = [...agents].sort((a, b) => b.tasksCompleted - a.tasksCompleted).slice(0, 5)
+  const topDistrict = [...districts]
+    .map((district) => ({
+      district,
+      agents: agents.filter((agent) => agent.district === district.id),
+    }))
+    .sort((a, b) => b.agents.length - a.agents.length)[0]
+
+  const districtCards = districts.map((district) => {
+    const squad = agents.filter((agent) => agent.district === district.id)
+    const working = squad.filter((agent) => agent.status === "working").length
+    const avgLoad = Math.round(squad.reduce((sum, agent) => sum + agent.cpu, 0) / Math.max(1, squad.length))
+
+    return {
+      district,
+      squad,
+      working,
+      avgLoad,
+    }
+  })
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(demoKey)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1600)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  return (
+    <main className="min-h-screen overflow-hidden bg-[#04070d] text-slate-100">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.16),_transparent_28%),radial-gradient(circle_at_85%_20%,_rgba(251,191,36,0.12),_transparent_22%),linear-gradient(180deg,_rgba(3,7,18,0.85),_rgba(3,7,18,0.96))]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(148,163,184,0.6)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.6)_1px,transparent_1px)] [background-size:28px_28px]" />
+
+      <div className="relative mx-auto flex min-h-screen w-full max-w-[1500px] flex-col gap-5 px-4 py-4 sm:px-6 lg:px-8">
+        <header className="grid gap-4 xl:grid-cols-[1.35fr_0.65fr]">
+          <section className="rounded-[28px] border border-cyan-500/20 bg-slate-950/80 p-5 shadow-[0_0_0_1px_rgba(15,23,42,0.7),0_24px_80px_rgba(2,8,23,0.55)] backdrop-blur">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-3xl">
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[10px] uppercase tracking-[0.32em] text-cyan-200">
+                  <RadioTower className="h-3.5 w-3.5" />
+                  Admin Command Deck
+                </div>
+                <h1 className="font-pixel text-2xl uppercase leading-tight text-cyan-100 sm:text-3xl">
+                  Agent Payments Infra for Orchestrated Teams
+                </h1>
+                <p className="mt-4 max-w-2xl font-vt323 text-xl leading-7 text-slate-300">
+                  The admin view now matches the city control surface: same mock squads, same districts,
+                  and the same operating tone. Here you sell x402 payment rails, API access, and request-capped
+                  orchestration as a managed layer on top of the main simulation.
+                </p>
+              </div>
+
+              <div className="grid min-w-[280px] gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+                <SignalStat label="Active keys" value={String(activeAgents.length)} color="text-cyan-300" />
+                <SignalStat label="Tasks routed" value={formatCompact(totalTasks * 1440)} color="text-emerald-300" />
+                <SignalStat label="Top squad" value={topDistrict?.district.name ?? "Data Center"} color="text-amber-300" />
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-[28px] border border-slate-800 bg-slate-950/80 p-5 shadow-[0_24px_80px_rgba(2,8,23,0.5)] backdrop-blur">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.32em] text-slate-500">Issued key</p>
+                <p className="mt-3 font-mono text-sm text-cyan-200 sm:text-base">{demoKey}</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-xs uppercase tracking-[0.2em] text-slate-200 transition hover:border-cyan-400/50 hover:text-cyan-200"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <InfoRow icon={<KeyRound className="h-4 w-4" />} label="Scope" value="agent.orchestrate / payments.charge / teams.read" />
+              <InfoRow icon={<Shield className="h-4 w-4" />} label="Mode" value="Subscription + monthly cap" />
+              <InfoRow icon={<Wallet className="h-4 w-4" />} label="Remaining" value={`${remaining.toLocaleString()} requests`} />
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-slate-800 bg-[#09101a] p-4">
+              <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[0.28em] text-slate-500">
+                <span>Monthly request meter</span>
+                <span>{usagePercent}%</span>
+              </div>
+              <div className="h-3 overflow-hidden rounded-full bg-slate-900">
+                <div
+                  className="h-full rounded-full bg-[linear-gradient(90deg,#22d3ee_0%,#38bdf8_45%,#fbbf24_100%)] transition-all"
+                  style={{ width: `${usagePercent}%` }}
+                />
+              </div>
+              <p className="mt-3 font-vt323 text-lg text-slate-300">
+                When the cap is reached, the platform can throttle, upsell, or move the customer into overage billing.
+              </p>
+            </div>
+          </section>
+        </header>
+
+        <section className="grid gap-5 xl:grid-cols-[0.8fr_1.2fr_0.8fr]">
+          <Panel
+            title="Infra posture"
+            eyebrow="Runtime telemetry"
+            bodyClassName="space-y-3"
+          >
+            <TelemetryRow icon={<Cpu className="h-4 w-4" />} label="Average CPU" value={`${avgCpu}%`} tone="text-cyan-300" />
+            <TelemetryRow icon={<Activity className="h-4 w-4" />} label="Average memory" value={`${avgMemory}%`} tone="text-violet-300" />
+            <TelemetryRow icon={<Layers3 className="h-4 w-4" />} label="District teams" value={String(districts.length)} tone="text-amber-300" />
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+              <p className="text-[10px] uppercase tracking-[0.28em] text-slate-500">Business frame</p>
+              <p className="mt-3 font-vt323 text-lg leading-6 text-slate-300">
+                Monthly subscription buys access to orchestration control plus the x402 payment extension.
+                Request volume is the primary limiter, not seats.
+              </p>
+            </div>
+          </Panel>
+
+          <Panel
+            title="District squads"
+            eyebrow="Main page parity"
+            bodyClassName="grid gap-4 md:grid-cols-2"
+          >
+            {districtCards.map(({ district, squad, working, avgLoad }) => (
+              <div key={district.id} className="rounded-[22px] border border-slate-800 bg-slate-950/70 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-pixel text-sm uppercase text-slate-100">{district.name}</p>
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.28em] text-slate-500">
+                      {squad.length} agents / {working} working now
+                    </p>
+                  </div>
+                  <span className="mt-1 h-3 w-3 rounded-full" style={{ backgroundColor: district.color }} />
+                </div>
+
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-900">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${avgLoad}%`, backgroundColor: district.color }}
+                  />
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {squad.slice(0, 4).map((agent) => (
+                    <span
+                      key={agent.id}
+                      className="rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 font-mono text-[11px] text-slate-300"
+                    >
+                      {agent.name}
+                    </span>
+                  ))}
+                </div>
+
+                <p className="mt-4 font-vt323 text-lg text-slate-300">
+                  Suggested as an isolated customer squad with policy-based request caps and shared payment settlement.
+                </p>
+              </div>
+            ))}
+          </Panel>
+
+          <Panel
+            title="Subscription lanes"
+            eyebrow="Pricing mock"
+            bodyClassName="space-y-3"
+          >
+            {plans.map((plan) => {
+              const isActive = plan.name === selectedPlan.name
+              return (
+                <button
+                  key={plan.name}
+                  type="button"
+                  onClick={() => setSelectedPlan(plan)}
+                  className={`w-full rounded-[22px] border p-4 text-left transition ${
+                    isActive
+                      ? "border-cyan-400/40 bg-cyan-400/10"
+                      : "border-slate-800 bg-slate-950/70 hover:border-slate-700"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className={`font-pixel text-sm uppercase ${plan.accent}`}>{plan.name}</p>
+                      <p className="mt-2 text-[10px] uppercase tracking-[0.28em] text-slate-500">{plan.requests}</p>
+                    </div>
+                    <p className="font-mono text-sm text-slate-100">{plan.price}</p>
+                  </div>
+                  <p className="mt-3 font-vt323 text-lg text-slate-300">{plan.teams}</p>
+                </button>
+              )
+            })}
+
+            <div className="rounded-[22px] border border-slate-800 bg-[#09101a] p-4">
+              <p className="text-[10px] uppercase tracking-[0.28em] text-slate-500">Selected lane</p>
+              <h3 className="mt-3 font-pixel text-base uppercase text-cyan-100">{selectedPlan.name}</h3>
+              <ul className="mt-4 space-y-2">
+                {selectedPlan.features.map((feature) => (
+                  <li key={feature} className="flex items-center gap-2 font-vt323 text-lg text-slate-300">
+                    <Check className="h-4 w-4 text-emerald-400" />
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Panel>
+        </section>
+
+        <section className="grid gap-5 xl:grid-cols-[1fr_0.9fr]">
+          <Panel title="Top operators" eyebrow="Main page agents" bodyClassName="grid gap-3 md:grid-cols-2 xl:grid-cols-1">
+            {topAgents.map((agent) => (
+              <div key={agent.id} className="rounded-[20px] border border-slate-800 bg-slate-950/70 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-mono text-sm" style={{ color: agent.color }}>{agent.name}</p>
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.24em] text-slate-500">
+                      {agent.model} / {agent.status}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-mono text-sm text-cyan-200">{agent.tasksCompleted} tasks</p>
+                    <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500">{agent.district}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </Panel>
+
+          <Panel title="Offer framing" eyebrow="What this screen is selling" bodyClassName="grid gap-3 md:grid-cols-3">
+            <FeatureBlock
+              title="Agent teams"
+              text="Package districts as customer squads with isolated routing, policies, and operational telemetry."
+            />
+            <FeatureBlock
+              title="x402 extension"
+              text="Use the payment rail as a monetized extension layer for request-triggered or workflow-triggered charges."
+            />
+            <FeatureBlock
+              title="Request quotas"
+              text="Anchor the subscription on monthly volume. It is easier to explain, meter, and upsell than raw infrastructure seats."
+            />
+          </Panel>
+        </section>
+      </div>
+    </main>
+  )
+}
+
+function Panel({
+  title,
+  eyebrow,
+  bodyClassName,
+  children,
+}: {
+  title: string
+  eyebrow: string
+  bodyClassName?: string
+  children: ReactNode
+}) {
+  return (
+    <section className="rounded-[28px] border border-slate-800 bg-slate-950/80 p-5 shadow-[0_24px_80px_rgba(2,8,23,0.45)] backdrop-blur">
+      <p className="text-[10px] uppercase tracking-[0.32em] text-slate-500">{eyebrow}</p>
+      <h2 className="mt-3 font-pixel text-lg uppercase text-slate-100">{title}</h2>
+      <div className={`mt-5 ${bodyClassName ?? ""}`}>{children}</div>
+    </section>
+  )
+}
+
+function SignalStat({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div className="rounded-[20px] border border-slate-800 bg-[#09101a] p-3">
+      <p className="text-[10px] uppercase tracking-[0.28em] text-slate-500">{label}</p>
+      <p className={`mt-2 font-pixel text-sm uppercase ${color}`}>{value}</p>
+    </div>
+  )
+}
+
+function InfoRow({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-950/70 p-3">
+      <div className="mt-0.5 text-cyan-300">{icon}</div>
+      <div>
+        <p className="text-[10px] uppercase tracking-[0.28em] text-slate-500">{label}</p>
+        <p className="mt-1 font-mono text-sm text-slate-200">{value}</p>
+      </div>
+    </div>
+  )
+}
+
+function TelemetryRow({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: ReactNode
+  label: string
+  value: string
+  tone: string
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3">
+      <div className="flex items-center gap-3">
+        <div className="text-slate-400">{icon}</div>
+        <p className="text-sm text-slate-300">{label}</p>
+      </div>
+      <p className={`font-mono text-sm ${tone}`}>{value}</p>
+    </div>
+  )
+}
+
+function FeatureBlock({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-[20px] border border-slate-800 bg-slate-950/70 p-4">
+      <p className="font-pixel text-sm uppercase text-cyan-200">{title}</p>
+      <p className="mt-3 font-vt323 text-lg leading-6 text-slate-300">{text}</p>
+    </div>
+  )
+}
+
+function formatCompact(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value)
+}
