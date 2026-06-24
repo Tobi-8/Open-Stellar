@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { peekX402Quote, settleX402 } from '@/lib/protocols/x402'
 import { authorizePayment } from '@/lib/passport/passport'
+import { publishSystemEvent } from '@/lib/events/system-events'
 
 export async function POST(req: Request) {
   try {
@@ -8,6 +9,7 @@ export async function POST(req: Request) {
     const paymentRef = String(body.paymentRef || '')
     const chain = body.chain === 'stellar' ? 'stellar' : 'bnb'
     const agentId = body.agentId ? String(body.agentId) : ''
+    const paidBy = String(body.paidBy || 'unknown')
 
     // Agent Passport gate: if the payment is made on behalf of an agent, it may
     // settle only when the agent holds a valid on-chain passport whose proven
@@ -30,12 +32,18 @@ export async function POST(req: Request) {
       paymentRef,
       chain,
       txHash: String(body.txHash || ''),
-      paidBy: String(body.paidBy || 'unknown'),
+      paidBy,
     })
 
     if (!result.ok || !result.receipt) {
       return NextResponse.json({ ok: false, error: result.error || 'x402 settlement rejected' }, { status: 400 })
     }
+
+    publishSystemEvent({
+      type: 'payment.received',
+      agentId: agentId || paidBy,
+      receipt: result.receipt,
+    })
 
     return NextResponse.json({ ok: true, receipt: result.receipt })
   } catch (error) {

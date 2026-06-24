@@ -34,6 +34,8 @@ export interface X402Receipt {
   settledAt: string
   txHash: string
   chain: SettlementChain
+  amountUsd?: number
+  amountUnits?: string
 }
 
 const CHAIN_DECIMALS: Record<SettlementChain, number> = {
@@ -138,6 +140,9 @@ export function settleX402(input: X402Settlement): X402SettlementResult {
   if (!receipt.accepted) {
     return { ok: false, error: 'Invalid tx hash format' }
   }
+
+  receipt.amountUsd = quote.amountUsd
+  receipt.amountUnits = quote.amountUnits
 
   quoteRegistry.delete(input.paymentRef)
   return { ok: true, receipt }

@@ -17,6 +17,16 @@ interface SpriteConfig {
   crop?: [number, number, number, number]
 }
 
+export interface FloatingOverlay {
+  id: number
+  x: number
+  y: number
+  text: string
+  color: string
+  startedAt: number
+  duration: number
+}
+
 const SPRITE_CONFIGS: SpriteConfig[] = [
   { path: "/sprites/robot-tv.gif" },
   { path: "/sprites/robot-tank.gif" },
@@ -44,9 +54,10 @@ interface PixelCityProps {
   onSelectAgent: (id: string | null) => void
   tick: number
   txAnimations?: TxAnimation[]
+  floatingOverlays?: FloatingOverlay[]
 }
 
-export function PixelCity({ agents, districts, selectedAgentId, onSelectAgent, tick, txAnimations = [] }: PixelCityProps) {
+export function PixelCity({ agents, districts, selectedAgentId, onSelectAgent, tick, txAnimations = [], floatingOverlays = [] }: PixelCityProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [images, setImages] = useState<Record<string, HTMLImageElement>>({})
@@ -269,6 +280,39 @@ export function PixelCity({ agents, districts, selectedAgentId, onSelectAgent, t
           zIndex: 1,
         }}
       />
+      {floatingOverlays.map((overlay) => {
+        const elapsed = Date.now() - overlay.startedAt
+        const progress = Math.min(1, elapsed / overlay.duration)
+        const lift = Math.round(progress * 28)
+        const fade = Math.max(0, 1 - progress)
+
+        return (
+          <div
+            key={overlay.id}
+            style={{
+              position: "absolute",
+              left: overlay.x,
+              top: overlay.y - lift,
+              transform: "translate(-50%, -100%)",
+              zIndex: 9,
+              pointerEvents: "none",
+              color: overlay.color,
+              opacity: fade,
+              fontFamily: "monospace",
+              fontSize: 11,
+              fontWeight: 700,
+              textShadow: "0 2px 8px rgba(0,0,0,0.7)",
+              background: "rgba(3,7,18,0.35)",
+              border: `1px solid ${overlay.color}33`,
+              borderRadius: 6,
+              padding: "2px 6px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {overlay.text}
+          </div>
+        )
+      })}
       {/* Agent hover tooltip */}
       {hoveredAgent && tooltipPos && (
         <div
