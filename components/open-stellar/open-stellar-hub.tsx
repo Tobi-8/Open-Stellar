@@ -237,7 +237,11 @@ export function OpenStellarHub() {
     const queryColorBlind = params.get("colorblind")
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)")
 
-    setColorBlindMode(queryColorBlind === "true" || storedColorBlind === "true")
+    const colorBlindEnabled = queryColorBlind === "true" || storedColorBlind === "true"
+    setColorBlindMode(colorBlindEnabled)
+    if (queryColorBlind === "true") {
+      localStorage.setItem("colorblind-mode", "true")
+    }
     setReduceMotion(prefersReducedMotion.matches)
 
     const handleMotionChange = (event: MediaQueryListEvent) => {
@@ -502,9 +506,9 @@ export function OpenStellarHub() {
 
     if (event.type === "district.unlocked") {
       audioEngine.playEvent("district_win")
-      const districtId = event.districtId ?? event.district?.id
+      const districtId = (event as any).districtId ?? (event as any).district?.id
       const district = DISTRICTS.find((candidate) => candidate.id === districtId)
-      const districtName = event.district?.name ?? district?.name ?? districtId ?? "a district"
+      const districtName = (event as any).district?.name ?? district?.name ?? districtId ?? "a district"
       pushLog(`district unlocked: ${districtName}`, "success", event.agentId ?? "system")
       toast.success("District unlocked", { description: String(districtName) })
       if (district) {
@@ -513,11 +517,6 @@ export function OpenStellarHub() {
           spreadW: district.w * 0.7,
         })
       }
-      return
-    }
-
-    if (event.type === "agent.registry") {
-      pushLog(`registry ${event.action}: ${event.agent.agentId}`, "info", event.agentId)
       return
     }
 
